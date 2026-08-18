@@ -6,8 +6,7 @@ To set up the project locally, run the following commands to clone the repositor
 
 ```bash
 # 1. Clone the repository and navigate into it
-git clone [https://github.com/yourusername/your-repo-name.git](https://github.com/yourusername/your-repo-name.git)
-cd your-repo-name
+git clone https://github.com/errodd/wharhammer_40k_faction_classificator.git
 
 # 2. Create and activate the virtual environment (Linux/macOS)
 python3 -m venv venv
