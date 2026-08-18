@@ -13,14 +13,18 @@ def create_notebook():
 **University of Carabobo**  
 **Experimental Faculty of Science and Technology**  
 **Department of Computing**  
-**Course:** Machine Learning  
+**Course:** Machine Learning\\
+**Professor:** Álvaro Espinoza\\
+**Authors:** Gustavo Herrera, Jeanmarco Alarcón   
 
-**Description:** This notebook performs a comprehensive Exploratory Data Analysis (EDA) on a Warhammer 40k dataset. The primary objective is to understand the underlying data structure, assess data quality, and discover patterns to predict the faction to which a unit belongs (`faction_id`).
+**Description:** This notebook performs a comprehensive Exploratory Data Analysis (EDA) on a relational dataset of Warhammer 40,000 units extracted from Wahapedia. The primary objective is to understand the structural, statistical, and semantic characteristics of the data to build a robust machine learning model capable of predicting a unit's **Faction** based on its physical stats, wargear, and tactical abilities, while strictly preventing data leakage.
 
 ### Context & Definition of the Problem
-The domain is the tabletop wargame Warhammer 40k. Players build armies from different factions, each with unique statistics, weapons, and specializations. 
-- **Observation Unit**: A single Datasheet (which represents a specific unit or character in the game, along with its aggregated models and wargear).
-- **Target Variable**: `faction_id` (or `faction_name`). This is a **multiclass classification** problem.
+* **Domain:** Warhammer 40,000, a tabletop miniature wargame. Units possess complex statistical profiles, narrative backgrounds, and tactical rules.
+* **Motivating Question:** Can we accurately predict the faction of a Warhammer 40k unit based solely on its mechanical characteristics (stats, wargear profiles, and ability text), mimicking how an experienced player identifies an army on the battlefield?
+* **Unit of Observation:** A single `Datasheet` (a specific unit in the game, e.g., "Intercessor Squad" or "Chaos Terminator"). After merging, each row represents one unique unit.
+* **Target Variable:** `faction_name` (Categorical, Multiclass). Derived from `faction_id`.
+* **Problem Type:** Supervised Learning -> **Multiclass Classification**. (There are 15+ distinct factions, making it a highly imbalanced multiclass problem).
 
 ### Guiding Questions
 1. How imbalanced is the distribution of factions?
@@ -49,49 +53,49 @@ pd.set_option('display.max_columns', None)
 """))
 
     # 2. Data Loading
-    cells.append(nbf.v4.new_markdown_cell("""## 1. Data Loading and Integration
-We connect to the SQLite database `warhammer40k.db` which contains our raw tables. We will extract the 5 important tables and construct a unified analytical dataframe.
+    cells.append(nbf.v4.new_markdown_cell("""### 1. Data Loading and Integration
+Data extraction was performed on the SQLite database (`warhammer40k.db`), which contains the raw relational tables. The five primary tables were extracted to construct a consolidated analytical dataframe.
 
-### Excluded Data and Dimensionality Reduction
-To build a clean and focused analytical dataset, several tables and columns were discarded:
-**Discarded Tables:**
-- `sources`, `last_update`, `ds_options`, `ds_leader`, `ds_unit_comp`: Irrelevant metadata, external links, and composition limits that do not define a unit's combat profile.
-- `abilities`, `detachment_abilities`, `enhancements`, `stratagems` (and their junction tables): Excluded because they are composed almost entirely of unstructured narrative text and lack numerical features directly usable for faction identification.
+### Variable Evaluation and Proposed Exclusions
+Guided by the Exploratory Data Analysis (EDA) and the imperative to curate a highly focused dataset, the exclusion of the following tables and features is proposed, given their lack of relevance to the predictive objective:
 
-**Discarded Columns from `Datasheets`:**
-- `source_id`, `link`: External references and URLs.
-- `legend`, `role`: Narrative text with inefficient processing overhead.
-- `transport`, `virtual`, `leader_head`, `leader_footer`, `damaged_w`, `damaged_description`: Excluded due to massive amounts of missing data (nulls) and little to no predictive power.
+**Tables Proposed for Exclusion:**
+- `sources`, `last_update`, `ds_options`, `ds_leader`, `ds_unit_comp`: These represent metadata, external linkages, and compositional constraints that do not directly quantify a unit's combat profile.
+- `abilities`, `detachment_abilities`, `enhancements`, `stratagems` (and their respective junction tables): Exclusion is recommended as these entities consist predominantly of unstructured narrative text, lacking extractable numerical features pertinent to faction classification.
 
-**Other Discarded Columns (from remaining tables):**
-- `line`, `line_in_wargear`: Internal row indices without analytical value.
-- `dice`: Dice rolling formulas (e.g., D6) that are too complex for simple numeric parsing.
+**Features from `Datasheets` Proposed for Exclusion:**
+- `source_id`, `link`: External references and Uniform Resource Locators (URLs).
+- `legend`, `role`: Narrative string variables that introduce inefficient computational overhead.
+- `transport`, `virtual`, `leader_head`, `leader_footer`, `damaged_w`, `damaged_description`: Exclusion is suggested due to extreme data sparsity (high frequency of null values) and the consequent absence of predictive utility.
+
+**Additional Features Proposed for Exclusion (from remaining tables):**
+- `line`, `line_in_wargear`: Internal row indices devoid of analytical significance.
+- `dice`: Stochastic probability formulas (e.g., D6) presenting excessive complexity for standard numerical processing at this phase.
 - `link` (from Factions): External URL.
-- `name` (from DS_Models), `description` (from DS_Wargear, DS_Model_Costs), `inv_sv_descr`, `base_size`, `base_size_descr`: Purely descriptive/narrative text or physical dimensions that do not directly contribute to the numeric combat profile.
+- `name` (from DS_Models), `description` (from DS_Wargear, DS_Model_Costs), `inv_sv_descr`, `base_size`, `base_size_descr`: Purely qualitative textual descriptions or physical dimensions that do not parameterize the numerical combat profile.
 
-### Included Tables & Contributed Columns:
+### Included Tables and Retained Features:
 *   **`Factions`**: `name` (extracted as `faction_name`).
 *   **`Datasheets`**: `id`, `name` (extracted as `unit_name`), `faction_id`, and `loadout`.
-*   **`DS_Models`**: `M`, `T`, `Sv`, `inv_sv`, `W`, `Ld`, and `OC` (averaged per datasheet).
+*   **`DS_Models`**: `M`, `T`, `Sv`, `inv_sv`, `W`, `Ld`, and `OC` (aggregated as mean values per datasheet).
 *   **`DS_Wargear`**: `A`, `BS_WS`, `S`, `AP`, `D`, `range`, `type`, and `name` (aggregated per datasheet).
-*   **`DS_Model_Costs`**: `cost` (averaged per datasheet).
-
+*   **`DS_Model_Costs`**: `cost` (aggregated as mean value per datasheet).
 
 ### Data Dictionary
-To understand the tabletop attributes, here is the definition of each variable:
-- **Movement (M)**: Inches the unit can move in the Movement phase.
-- **Toughness (T)**: Compared against weapon Strength to determine wound success.
-- **Save (Sv)**: Armor saving throw to avoid damage.
-- **Invulnerable Save (inv_sv)**: Special save that ignores Armor Penetration (AP).
-- **Wounds (W)**: Health points. When damage equals this, the model dies.
-- **Leadership (Ld)**: Used for Battle-shock tests (rolling 2D6).
-- **Objective Control (OC)**: The value this model contributes to controlling an objective marker.
-- **Base Size**: The physical size of the model's base in millimeters, key for measuring distances.
-- **Attacks (A)**: Number of attacks a weapon makes.
-- **Skill (BS/WS)**: Ballistic Skill (ranged) or Weapon Skill (melee). The dice roll needed to hit.
-- **Strength (S)**: Compared to target's Toughness to see if an attack wounds.
-- **Armor Penetration (AP)**: Negative modifier applied to the target's Save.
-- **Damage (D)**: Wounds removed per successful unsaved wound.
+To clarify the tabletop mechanics parameterized for this analysis, the operational definitions of the variables are as follows:
+- **Movement (M)**: The spatial displacement capacity (in inches) during the Movement phase.
+- **Toughness (T)**: The structural threshold evaluated against incoming weapon Strength to determine wound probability.
+- **Save (Sv)**: The standard armor saving throw required to mitigate incoming damage.
+- **Invulnerable Save (inv_sv)**: An absolute defensive throw that supersedes Armor Penetration (AP) modifiers.
+- **Wounds (W)**: The health capacity of the entity; the model is eliminated upon cumulative damage equating this threshold.
+- **Leadership (Ld)**: The statistical threshold for Battle-shock tests (resolved via 2D6 roll).
+- **Objective Control (OC)**: The quantitative weight the model contributes toward securing strategic objectives.
+- **Base Size**: The physical diameter of the model's base (in millimeters), utilized for spatial measurements.
+- **Attacks (A)**: The discrete number of offensive strikes executed by a weapon.
+- **Skill (BS/WS)**: Ballistic Skill (ranged precision) or Weapon Skill (melee precision); represents the necessary probability threshold (dice roll) to register a hit.
+- **Strength (S)**: The kinetic force of an attack, compared against the target's Toughness to determine wounding success.
+- **Armor Penetration (AP)**: The standard modifier subtracted from the target's Save probability.
+- **Damage (D)**: The precise number of Wounds depleted per successful, unsaved attack.
 """))
 
     cells.append(nbf.v4.new_code_cell("""# Connect to the local SQLite DB
