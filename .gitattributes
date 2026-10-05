@@ -1,0 +1,3 @@
+# The raw export is stored byte for byte (CRLF line endings included):
+# the notebook verifies the SHA-256 of every file and stops if one differs.
+data/raw/*.csv -text

@@ -1,0 +1,14 @@
+# Local only: not part of the repository
+EDA/
+MLP/
+legacy/
+artifacts/
+revision_eda.md
+graphify-out/
+.graphifyignore
+
+# Environment and editor
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.db
